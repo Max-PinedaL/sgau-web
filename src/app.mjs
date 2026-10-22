@@ -8,6 +8,7 @@ const assets = {
   "/style.css": ["style.css", "text/css"],
   "/schema.js": ["schema.js", "text/javascript"],
   "/logo.webp": ["logo.webp", "image/webp"],
+  "/pending.gif": ["pending.gif", "image/gif"],
 };
 export function createApp({
   origin,
@@ -95,7 +96,8 @@ export function createApp({
         };
     return {
       username: s.username,
-      profile: s.admin ? "Administrador" : s.label,
+      profile: s.admin ? "Administrador" : Object.keys(permissions).length ? s.label : "Pendiente de asignación",
+      pendingAssignment: !s.admin && !Object.keys(permissions).length,
       csrf: s.csrf,
       expiresAt: s.expires,
       permissions,
@@ -266,11 +268,6 @@ export function createApp({
           expires: now() + TTL,
           csrf: randomBytes(24).toString("hex"),
         };
-        if (!admin && !Object.keys(info(s).permissions).length)
-          throw new HttpError(
-            403,
-            "Cuenta válida, pero aún no tiene registros asignados en esta web. Solicita al coordinador configurar tu acceso.",
-          );
         if (sid) sessions.delete(sid);
         const id = randomBytes(32).toString("hex");
         sessions.set(id, s);

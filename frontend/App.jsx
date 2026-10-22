@@ -99,8 +99,7 @@ function Login({ login, message }) {
             tus credenciales privadas.
           </div>
           <p className="login-small">
-            ¿Necesitas una cuenta? Solicítala al administrador de tu
-            institución.
+            ¿No tienes cuenta? Solicita al administrador que la cree para ti.
           </p>
         </div>
       </section>
@@ -343,6 +342,20 @@ function Records({ route, session, request, notify }) {
 function Workspace({ auth, notify }) {
   const { session, seconds, logout, request } = auth,
     [route, setRoute] = useState("home");
+  if (session.pendingAssignment) return (
+    <div className="pending-shell">
+      <header className="topbar">
+        <Brand />
+        <div className="identity"><strong>{session.username}</strong></div>
+        <button className="secondary" onClick={logout}>Cerrar sesión</button>
+      </header>
+      <main className="pending-content">
+        <h1>Pendiente de asignación</h1>
+        <p>Tu cuenta está lista. El administrador debe asignarte tus registros para habilitar los módulos.</p>
+        <img src="/pending.gif" alt="Animación de espera mientras se asigna tu cuenta" className="pending-image" />
+      </main>
+    </div>
+  );
   return (
     <div className="shell">
       <aside className="sidebar">

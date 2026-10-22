@@ -97,9 +97,20 @@ test("rejects CSRF and foreign origins", async (t) => {
     403,
   );
 });
-test("unassigned valid user is denied instead of exposing all records", async (t) => {
+test("unassigned valid user enters pending dashboard without academic access", async (t) => {
   const f = await fixture(t);
-  assert.equal((await f.login("unknown")).status, 403);
+  const result = await f.login("unknown");
+  assert.equal(result.status, 200);
+  assert.equal(result.data.pendingAssignment, true);
+  assert.deepEqual(result.data.permissions, {});
+  assert.equal((await f.call("/api/session")).data.pendingAssignment, true);
+  for (const route of Object.keys(modules)) {
+    assert.equal((await f.call(`/api/records/${route}`)).status, 403);
+    assert.equal((await f.call(`/api/records/${route}`, "POST", {})).status, 403);
+  }
+  assert.equal((await f.call("/api/access")).status, 403);
+  f.advance(60000);
+  assert.equal((await f.call("/api/session")).status, 401);
 });
 test("upstream failure does not grant permissions", async (t) => {
   const f = await fixture(t, { failure: "carreras" });

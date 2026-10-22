@@ -129,6 +129,18 @@ try {
   });
   await page.reload();
   await page.getByRole("button", { name: "Iniciar sesión" }).waitFor();
+  await page.getByLabel("Usuario", { exact: true }).fill("unknown");
+  await page.getByLabel("Contraseña", { exact: true }).fill("test-only");
+  await page.getByRole("button", { name: "Iniciar sesión" }).click();
+  await page.getByRole("heading", { name: "Pendiente de asignación" }).waitFor();
+  assert.equal(await page.locator(".module-card").count(), 0);
+  assert.equal(await page.getByRole("navigation").count(), 0);
+  const picture = page.locator("img.pending-image");
+  await picture.waitFor();
+  await picture.evaluate((img) => img.decode());
+  assert.ok(await picture.evaluate((img) => img.naturalWidth > 0));
+  await page.getByRole("button", { name: "Cerrar sesión" }).click();
+  await page.getByRole("button", { name: "Iniciar sesión" }).waitFor();
   assert.deepEqual(errors, []);
   console.log(
     "Interfaz verificada: 8 módulos, creación, campos, permisos, sesión y vista móvil.",

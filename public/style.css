@@ -790,3 +790,9 @@ dialog::backdrop {
 }
 
 .nav-group{display:contents}
+
+.pending-shell { min-height: 100vh; }
+.pending-shell .topbar { flex-wrap: wrap; gap: 16px; }
+.pending-content { min-height: 70vh; padding: 32px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.pending-content p { max-width: 560px; }
+.pending-image { width: 344px; max-width: 100%; height: auto; margin-top: 24px; border-radius: 16px; }
