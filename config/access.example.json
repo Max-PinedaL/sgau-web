@@ -1,0 +1,17 @@
+{
+  "usuario_estudiante_real": {
+    "label": "Estudiante",
+    "modules": {
+      "estudiantes": { "ids": [7], "actions": ["read"] },
+      "inscripciones": { "studentIds": [7], "actions": ["read"] }
+    }
+  },
+  "usuario_docente_real": {
+    "label": "Docente",
+    "modules": {
+      "docentes": { "ids": [3], "actions": ["read", "update"] },
+      "cursos": { "ids": [2], "actions": ["read"] },
+      "nota": { "ids": [12], "actions": ["read", "delete"] }
+    }
+  }
+}
