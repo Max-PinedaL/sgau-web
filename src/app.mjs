@@ -351,7 +351,7 @@ export function createApp({
         if (input.username === s.username)
           throw new HttpError(
             400,
-            "No puedes cambiar tu propio rol desde esta pantalla.",
+            "No puedes vincular tu propia cuenta desde esta pantalla.",
           );
         const user = (await list(s, "usuarios")).find(
           (u) => u.username === input.username,
@@ -413,20 +413,6 @@ export function createApp({
             409,
             "Este registro ya está vinculado a otra cuenta.",
           );
-        const payload = validate(
-          "usuarios",
-          {
-            nombre: user.nombre,
-            apellido: user.apellido,
-            username: user.username,
-            email: user.email,
-            activo: user.activo,
-            rol: input.profile,
-          },
-          true,
-          user,
-        );
-        checked(await upstream(`usuarios/${user.id}`, s.token, "PUT", payload));
         for (const [key, item] of sessions)
           if (item.username === input.username) sessions.delete(key);
         try {
@@ -437,7 +423,7 @@ export function createApp({
         } catch {
           throw new HttpError(
             500,
-            "El rol cambió en el backend, pero no se pudo guardar la asignación web. Corrige el archivo de accesos y vuelve a guardar; el acceso anterior debe revisarse.",
+            "No se pudo guardar la vinculación en el portal. Reintenta; la cuenta y su rol no fueron modificados.",
           );
         }
         return send(200, { ok: true });

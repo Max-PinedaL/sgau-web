@@ -394,7 +394,7 @@ function Workspace({ auth, notify }) {
               className={"nav-item" + (route === "access" ? " selected" : "")}
               onClick={() => setRoute("access")}
             >
-              Asignar accesos
+              Vinculación de datos
             </button>
           )}
         </nav>

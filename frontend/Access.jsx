@@ -13,9 +13,9 @@ export default function Access({ request, notify }) {
   useEffect(() => {
     let active = true;
     setError("");
-    Promise.all([request("/api/records/usuarios"), request("/api/access")])
-      .then(([users, assignments]) => {
-        if (active) setData({ users, assignments });
+    Promise.all([request("/api/records/usuarios"), request("/api/access"), request("/api/records/estudiantes"), request("/api/records/docentes")])
+      .then(([users, assignments, estudiantes, docentes]) => {
+        if (active) setData({ users, assignments, estudiantes, docentes });
       })
       .catch((err) => {
         if (active) setError(err.message);
@@ -55,7 +55,7 @@ export default function Access({ request, notify }) {
         canEdit: profile === "DOCENTE" && canEdit,
       });
       notify(
-        "Rol y asignación actualizados. La cuenta deberá iniciar sesión de nuevo.",
+        "Vinculación guardada. La cuenta deberá iniciar sesión de nuevo.",
       );
       setRevision((v) => v + 1);
     } catch (err) {
@@ -69,7 +69,7 @@ export default function Access({ request, notify }) {
       <div className="page-head">
         <div>
           <p className="eyebrow">ADMINISTRACIÓN</p>
-          <h1>Asignar accesos</h1>
+          <h1>Vinculación de datos</h1>
           <p className="muted">Cada cuenta, únicamente sus registros.</p>
         </div>
       </div>
@@ -104,10 +104,10 @@ export default function Access({ request, notify }) {
             </select>
           </label>
           <label>
-            Perfil y rol
+            Tipo de registro a vincular
             <select
               value={profile}
-              onChange={(e) => setProfile(e.target.value)}
+              onChange={(e) => { setProfile(e.target.value); setPerson(""); setCourses(""); setNotes(""); setCanEdit(false); }}
               disabled={busy}
             >
               <option value="ESTUDIANTE">Estudiante</option>
@@ -115,16 +115,22 @@ export default function Access({ request, notify }) {
             </select>
           </label>
           <label>
-            ID del estudiante o docente existente
-            <input
-              type="number"
-              min="1"
-              step="1"
+            {profile === "DOCENTE" ? "Docente existente" : "Estudiante existente"}
+            <select
               required
               value={person}
               onChange={(e) => setPerson(e.target.value)}
-              disabled={busy}
-            />
+              disabled={busy || !username}
+            >
+              <option value="">Selecciona un registro</option>
+              {(profile === "DOCENTE" ? data.docentes : data.estudiantes).map((p) => {
+                const route = profile === "DOCENTE" ? "docentes" : "estudiantes";
+                const linked = Object.entries(data.assignments).some(([account, a]) => account !== username && a.modules?.[route]?.ids?.includes(p.id));
+                return <option key={p.id} value={p.id} disabled={linked}>
+                  {[p.nombre, p.apellido].filter(Boolean).join(" ") || "Sin nombre"} · ID {p.id}{linked ? " · Ya vinculado" : ""}
+                </option>;
+              })}
+            </select>
           </label>
           {profile === "DOCENTE" && (
             <>
@@ -158,12 +164,12 @@ export default function Access({ request, notify }) {
             </>
           )}
           <p className="notice">
-            Los IDs deben corresponder a registros reales. Esta operación
-            actualiza el rol de la cuenta y guarda sus vínculos en el servidor
-            web.
+            El rol se administra en Usuarios y no cambia al vincular datos.
+            El servicio actual no devuelve el rol de las cuentas: selecciona el tipo de registro que corresponda al rol existente.
+            Esta pantalla solo guarda los vínculos y permisos del portal.
           </p>
           <button disabled={busy} type="submit">
-            {busy ? "Guardando…" : "Guardar asignación"}
+            {busy ? "Guardando…" : "Guardar vinculación"}
           </button>
         </form>
       )}

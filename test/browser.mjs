@@ -87,10 +87,17 @@ try {
   );
   await page.getByRole("button", { name: "Cancelar", exact: true }).click();
   await page
-    .getByRole("button", { name: "Asignar accesos", exact: true })
+    .getByRole("button", { name: "Vinculación de datos", exact: true })
     .click();
   await page.getByLabel("Cuenta del backend").waitFor();
-  assert.equal(await page.locator("select").count(), 2);
+  assert.equal(await page.locator("select").count(), 3);
+  await page.getByLabel("Cuenta del backend").selectOption("student");
+  assert.ok((await page.getByLabel("Estudiante existente").innerText()).includes("Propio Prueba"));
+  await page.getByLabel("Estudiante existente").selectOption("7");
+  const beforeLink = f.writes.length;
+  await page.getByRole("button", { name: "Guardar vinculación" }).click();
+  await page.getByRole("status").filter({ hasText: "Vinculación guardada." }).waitFor();
+  assert.equal(f.writes.length, beforeLink);
   await page.getByRole("button", { name: "Inicio", exact: true }).click();
   if (process.env.QA_DIR)
     await page.screenshot({

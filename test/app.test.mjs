@@ -132,7 +132,7 @@ test("all admin modules support listing and reject empty forms", async (t) => {
   }
   assert.equal(f.writes.length, 0);
 });
-test("administrator assignment updates role, persists scope and revokes old session", async (t) => {
+test("administrator links records without writing users or changing roles", async (t) => {
   const f = await fixture(t);
   await f.login();
   delete f.assignments.teacher;
@@ -145,8 +145,7 @@ test("administrator assignment updates role, persists scope and revokes old sess
     canEdit: true,
   });
   assert.equal(r.status, 200);
-  assert.equal(f.writes[0].body.rol, "DOCENTE");
-  assert.equal(f.writes[0].body.password, undefined);
+  assert.equal(f.writes.length, 0);
   assert.deepEqual(f.assignments.student.modules.cursos.ids, [2]);
 });
 test("assignment rejects missing people and unrelated notes", async (t) => {
@@ -278,3 +277,5 @@ test("external links can open login without allowing cross-site API requests", a
   assert.equal((await f.call("/api/session", "GET", undefined, headers)).status, 403);
   assert.equal((await f.call("/api/logout", "POST", {}, headers)).status, 403);
 });
+
+
