@@ -154,9 +154,12 @@ export function createApp({
     if (secure) res.setHeader("Strict-Transport-Security", "max-age=31536000");
     try {
       const path = new URL(req.url, origin).pathname;
+      const publicNavigation = req.method === "GET" && path === "/" &&
+        req.headers["sec-fetch-mode"] === "navigate" &&
+        req.headers["sec-fetch-dest"] === "document";
       if (
         req.headers.host !== new URL(origin).host ||
-        req.headers["sec-fetch-site"] === "cross-site" ||
+        (req.headers["sec-fetch-site"] === "cross-site" && !publicNavigation) ||
         (!["GET", "HEAD"].includes(req.method) && req.headers.origin !== origin)
       )
         throw new HttpError(403, "Origen no permitido.");

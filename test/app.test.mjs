@@ -1,3 +1,4 @@
+import { request as httpRequest } from "node:http";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { fixture } from "./support.mjs";
@@ -257,4 +258,23 @@ test("production cookie and security headers protect browser session", async (t)
   assert.equal(r.response.headers.get("x-frame-options"), "DENY");
   assert.match(r.response.headers.get("content-security-policy"), /object-src 'none'/);
   assert.equal(r.response.headers.get("strict-transport-security"), "max-age=31536000");
+});
+
+test("external links can open login without allowing cross-site API requests", async (t) => {
+  const f = await fixture(t);
+  const headers = { "Sec-Fetch-Site": "cross-site", "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Dest": "document", Origin: "https://dashboard.render.com" };
+  const navigate = (extra) => new Promise((resolve, reject) => {
+    const req = httpRequest(f.origin + "/", { headers: extra }, (res) => {
+      res.resume();
+      res.on("end", () => resolve(res.statusCode));
+    });
+    req.on("error", reject);
+    req.end();
+  });
+  assert.equal(await navigate(headers), 200);
+  assert.equal(await navigate({ ...headers, "Sec-Fetch-Dest": "iframe" }), 403);
+  assert.equal(await navigate({ ...headers, "Sec-Fetch-Mode": "cors" }), 403);
+  await f.login();
+  assert.equal((await f.call("/api/session", "GET", undefined, headers)).status, 403);
+  assert.equal((await f.call("/api/logout", "POST", {}, headers)).status, 403);
 });
