@@ -585,20 +585,9 @@ dialog::backdrop {
   white-space: pre-wrap;
   font-size: 14px;
 }
-.spinner {
-  width: 24px;
-  height: 24px;
-  border: 3px solid #d9e8ec;
-  border-top-color: #00a8bd;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  margin: 0 auto 16px;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+.cat-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+.cat-loading img { display: block; object-fit: contain; }
+.cat-loading.compact { display: inline-flex; flex-direction: row; vertical-align: middle; }
 #toast {
   position: fixed;
   bottom: 24px;
@@ -796,3 +785,7 @@ dialog::backdrop {
 .pending-content { min-height: 70vh; padding: 32px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
 .pending-content p { max-width: 560px; }
 .pending-image { width: 344px; max-width: 100%; height: auto; margin-top: 24px; border-radius: 16px; }
+
+.assignment-list { min-width: 0; margin: 0; padding: 16px; border: 1px solid #cdd6e3; border-radius: 9px; max-height: 300px; overflow-y: auto; }
+.assignment-list legend { font-weight: 600; padding: 0 6px; }
+.assignment-list .checks { margin: 12px 0; overflow-wrap: anywhere; }

@@ -1,3 +1,4 @@
+import Loading from "./Loading.jsx";
 import { useEffect, useRef, useState } from "react";
 import { modules, formFields, titleOf, display } from "../public/schema.js";
 export default function RecordDialog({
@@ -191,7 +192,7 @@ export default function RecordDialog({
                 Cancelar
               </button>
               <button disabled={busy} className="danger" onClick={remove}>
-                Confirmar
+                {busy ? <Loading compact text="Procesando…" /> : "Confirmar"}
               </button>
             </div>
           </>
@@ -300,7 +301,7 @@ export default function RecordDialog({
                 Cancelar
               </button>
               <button disabled={busy} type="submit">
-                {busy ? "Guardando…" : "Guardar"}
+                {busy ? <Loading compact text="Guardando…" /> : "Guardar"}
               </button>
             </div>
           </form>

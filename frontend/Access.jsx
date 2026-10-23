@@ -1,3 +1,4 @@
+import Loading from "./Loading.jsx";
 import { useEffect, useState } from "react";
 export default function Access({ request, notify }) {
   const [data, setData] = useState(null),
@@ -82,7 +83,7 @@ export default function Access({ request, notify }) {
         error ? (
           <button onClick={() => setRevision((v) => v + 1)}>Reintentar</button>
         ) : (
-          <div className="spinner" />
+          <Loading />
         )
       ) : (
         <form className="access-grid" onSubmit={save}>
@@ -174,7 +175,7 @@ export default function Access({ request, notify }) {
           )}
 
           <button disabled={busy} type="submit">
-            {busy ? "Guardando…" : "Guardar vinculación"}
+            {busy ? <Loading compact text="Guardando…" /> : "Guardar vinculación"}
           </button>
         </form>
       )}

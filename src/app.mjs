@@ -9,6 +9,7 @@ const assets = {
   "/schema.js": ["schema.js", "text/javascript"],
   "/logo.webp": ["logo.webp", "image/webp"],
   "/pending.gif": ["pending.gif", "image/gif"],
+  "/loading-cat.gif": ["loading-cat.gif", "image/gif"],
 };
 export function createApp({
   origin,

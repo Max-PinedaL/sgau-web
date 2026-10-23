@@ -1,3 +1,4 @@
+import Loading from "./Loading.jsx";
 import { useEffect, useRef, useState } from "react";
 import { modules, display } from "../public/schema.js";
 import { useSession } from "./Session.jsx";
@@ -92,7 +93,7 @@ function Login({ login, message }) {
               </div>
             )}
             <button type="submit" disabled={busy}>
-              {busy ? "Verificando acceso…" : "Iniciar sesión →"}
+              {busy ? <Loading compact text="Verificando acceso…" /> : "Iniciar sesión →"}
             </button>
           </form>
           <div className="secure-note">
@@ -222,8 +223,7 @@ function Records({ route, session, request, notify }) {
           </div>
         ) : !rows ? (
           <div className="loading-row">
-            <div className="spinner" />
-            Consultando registros…
+            <Loading text="Consultando registros…" />
           </div>
         ) : (
           <>
@@ -455,7 +455,7 @@ export default function App() {
     if (!auth.session) setNotification("");
   }, [auth.session]);
   if (!auth.ready)
-    return <p className="boot">Preparando el portal académico…</p>;
+    return <div className="boot"><Loading text="Preparando el portal académico…" /></div>;
   return (
     <>
       {auth.session ? (
