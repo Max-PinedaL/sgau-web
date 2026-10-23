@@ -168,6 +168,17 @@ try {
   assert.ok(await picture.evaluate((img) => img.naturalWidth > 0));
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
   await page.getByRole("button", { name: "Iniciar sesión" }).waitFor();
+  await page.getByLabel("Usuario", { exact: true }).fill("teacher");
+  await page.getByLabel("Contraseña", { exact: true }).fill("test-only");
+  await page.getByRole("button", { name: "Iniciar sesión" }).click();
+  await page.getByRole("heading", { name: "Hola, teacher." }).waitFor();
+  await page.locator("button[data-route=nota]").click();
+  await page.getByRole("button", { name: "+ Crear nota" }).click();
+  await page.getByLabel("Descripción", { exact: true }).fill("Evaluación docente");
+  await page.getByLabel("Valor", { exact: true }).fill("90");
+  await page.getByLabel("Curso", { exact: true }).selectOption("Matemática");
+  await page.getByRole("button", { name: "Guardar", exact: true }).click();
+  await page.locator("tbody tr").filter({ hasText: "Evaluación docente" }).waitFor();
   assert.deepEqual(errors, []);
   console.log(
     "Interfaz verificada: 8 módulos, creación, campos, permisos, sesión y vista móvil.",

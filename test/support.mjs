@@ -67,6 +67,7 @@ const records = {
   nota: [{ id: 12, descripcion: "Parcial", valor: 80, curso: "Matemática" }],
 };
 export async function fixture(t, options = {}) {
+  const testRecords = structuredClone({ ...records, ...options.records });
   let clock = Date.now(),
     handler;
   const writes = [],
@@ -111,6 +112,13 @@ export async function fixture(t, options = {}) {
           : ["estudiantes", "inscripciones"];
     if (!available.includes(key)) return Response.json({}, { status: 403 });
     if (options.failure === key) return Response.json({}, { status: 500 });
+    if (init.method === "POST" && key === "nota") {
+      const body = JSON.parse(init.body);
+      const created = { id: Math.max(0, ...testRecords.nota.map((n) => n.id)) + 1, ...body };
+      testRecords.nota.push(created);
+      writes.push({ route, method: init.method, body });
+      return Response.json(created);
+    }
     if (init.method !== "GET") {
       writes.push({
         route,
@@ -124,7 +132,7 @@ export async function fixture(t, options = {}) {
             ...(init.body ? JSON.parse(init.body) : {}),
           });
     }
-    return Response.json(records[key]);
+    return Response.json(testRecords[key]);
   };
   const server = createServer((req, res) => handler(req, res));
   server.listen(0, "127.0.0.1");
@@ -138,6 +146,7 @@ export async function fixture(t, options = {}) {
     now: () => clock,
     loadAccess: async () => assignments,
     saveAssignment: async (user, value) => {
+      if (options.failSave) throw new Error("Simulated save failure");
       assignments[user] = value;
     },
   });

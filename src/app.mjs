@@ -21,6 +21,9 @@ export function createApp({
   fetcher = fetch,
   now = Date.now,
 }) {
+  const audit = [];
+  let noteLinkQueue = Promise.resolve();
+  const pendingEnrollments = new Set();
   const sessions = new Map(),
     attempts = new Map();
   const cookie = (v) =>
@@ -120,6 +123,16 @@ export function createApp({
   }
   return async function app(req, res) {
     let currentSession = null;
+    let enrollmentKey = null;
+    let operationSucceeded = false;
+    const auditPath = new URL(req.url, origin).pathname;
+    res.once("finish", () => {
+      if (enrollmentKey) pendingEnrollments.delete(enrollmentKey);
+      if (!["GET", "HEAD"].includes(req.method) && /^\/api\/(?:access|records\/[a-z]+(?:\/[0-9]+)?)$/.test(auditPath)) {
+        audit.unshift({ at: new Date(now()).toISOString(), actor: currentSession?.username || "Sin sesión", method: req.method, path: auditPath, status: res.statusCode, result: operationSucceeded ? "Completada" : res.statusCode >= 500 ? "No confirmado; revisar listado" : "Rechazada" });
+        if (audit.length > 500) audit.length = 500;
+      }
+    });
     const send = (code, data) => {
       if (
         code < 400 &&
@@ -321,6 +334,10 @@ export function createApp({
         }
         checked(verified);
       }
+      if (path === "/api/audit" && req.method === "GET") {
+        if (!s.admin) throw new HttpError(403, "Solo un administrador puede consultar la bitácora.");
+        return send(200, audit);
+      }
       if (path === "/api/access") {
         if (!s.admin)
           throw new HttpError(
@@ -356,12 +373,13 @@ export function createApp({
         const user = (await list(s, "usuarios")).find(
           (u) => u.username === input.username,
         );
+        if (user?.activo === false) throw new HttpError(409, "No puedes vincular una cuenta inactiva.");
         if (!user)
           throw new HttpError(404, "La cuenta no existe en el backend.");
         const student = input.profile === "ESTUDIANTE",
           personRoute = student ? "estudiantes" : "docentes";
         const people = await list(s, personRoute);
-        if (!people.some((p) => p.id === input.personId))
+        if (!people.some((p) => p.id === input.personId && p.activo === true))
           throw new HttpError(
             400,
             "El estudiante o docente indicado no existe o no está disponible.",
@@ -375,7 +393,7 @@ export function createApp({
           };
         } else {
           const courses = await list(s, "cursos");
-          if (input.courseIds.some((id) => !courses.some((c) => c.id === id)))
+          if (input.courseIds.some((id) => !courses.some((c) => c.id === id && c.activo === true)))
             throw new HttpError(400, "Un curso asignado no existe.");
           const notes = await list(s, "nota"),
             names = courses
@@ -426,6 +444,7 @@ export function createApp({
             "No se pudo guardar la vinculación en el portal. Reintenta; la cuenta y su rol no fueron modificados.",
           );
         }
+        operationSucceeded = true;
         return send(200, { ok: true });
       }
       const match = path.match(
@@ -470,7 +489,7 @@ export function createApp({
       if (req.method !== "DELETE") {
         body = validate(route, await bodyOf(req), !!id, actual);
         if (
-          !s.admin &&
+          actual &&
           route === "inscripciones" &&
           (body.estudianteId !== actual.estudianteId ||
             body.cursoId !== actual.cursoId)
@@ -479,20 +498,64 @@ export function createApp({
             403,
             "No puedes cambiar la asignación de esta inscripción.",
           );
-        if (!s.admin && route === "nota")
+        if (!s.admin && route === "nota" && req.method !== "POST")
           throw new HttpError(403, "Operación no disponible.");
+      }
+      if (actual?.activo === false) throw new HttpError(409, "El registro está inactivo. No se puede modificar desde esta operación.");
+      if (route === "inscripciones" && body) {
+        const key = `${body.estudianteId}:${body.cursoId}`;
+        if (pendingEnrollments.has(key)) throw new HttpError(409, "Ya hay una inscripción para este estudiante y curso en proceso. Actualiza el listado.");
+        pendingEnrollments.add(key);
+        enrollmentKey = key;
+        const [students, courses, enrollments] = await Promise.all([list(s, "estudiantes"), list(s, "cursos"), list(s, "inscripciones")]);
+        if (!students.some((p) => p.id === body.estudianteId && p.activo === true)) throw new HttpError(400, "Selecciona un estudiante existente y activo.");
+        if (!courses.some((c) => c.id === body.cursoId && c.activo === true)) throw new HttpError(400, "Selecciona un curso existente y activo.");
+        if (enrollments.some((e) => String(e.id) !== id && e.activo !== false && e.estudianteId === body.estudianteId && e.cursoId === body.cursoId)) throw new HttpError(409, "El estudiante ya tiene una inscripción vigente en este curso.");
+      }
+      let noteCourseId = null;
+      if (route === "nota" && body) {
+        const courses = await list(s, "cursos");
+        const matches = courses.filter((c) => c.nombre === body.curso && c.activo === true);
+        if (matches.length !== 1 || !allowed(s, "cursos", "read", matches[0])) throw new HttpError(400, "Selecciona un curso activo asignado con nombre único.");
+        noteCourseId = matches[0].id;
+      }
+      if (req.method === "DELETE" && ["estudiantes", "cursos"].includes(route)) {
+        const enrollments = await list(s, "inscripciones");
+        const field = route === "estudiantes" ? "estudianteId" : "cursoId";
+        if (enrollments.some((e) => String(e[field]) === id && e.activo !== false)) throw new HttpError(409, "No se puede dar de baja un registro con inscripciones vigentes.");
       }
       if (now() >= s.expires || !sessions.has(sid))
         throw new HttpError(401, "Tu sesión venció.");
       const result = checked(
         await upstream(route + (id ? `/${id}` : ""), s.token, req.method, body),
       );
+      operationSucceeded = true;
+      let message;
+      if (route === "nota" && req.method === "POST" && !s.admin) {
+        const link = noteLinkQueue.then(async () => {
+          if (!Number.isSafeInteger(result?.id) || result.id <= 0) throw new Error("Missing note ID");
+          const assignments = await loadAccess();
+          const assignment = assignments[s.username];
+          if (!assignment?.modules?.cursos?.ids?.includes(noteCourseId) ||
+              !assignment.modules.nota?.actions?.includes("read") ||
+              !assignment.modules.docentes?.ids?.some((id) => s.grants.docentes?.ids?.includes(id))) throw new Error("Assignment changed");
+          const grants = structuredClone(assignment.modules);
+          grants.nota.ids = [...new Set([...(grants.nota.ids || []), result.id])];
+          await saveAssignment(s.username, { ...assignment, modules: grants });
+          for (const session of sessions.values()) if (session.username === s.username) session.grants = structuredClone(grants);
+        });
+        noteLinkQueue = link.catch(() => {});
+        try { await link; } catch {
+          message = "La nota fue creada, pero no se pudo vincular a tu cuenta. No vuelvas a crearla; solicita al administrador que la vincule.";
+        }
+      }
       if (route === "usuarios" && actual) {
         for (const [key, item] of sessions)
           if (item.username === actual.username) sessions.delete(key);
       }
       return send(200, {
         ok: true,
+        ...(message ? { message } : {}),
         record:
           result && typeof result === "object" ? sanitize(route, result) : null,
       });

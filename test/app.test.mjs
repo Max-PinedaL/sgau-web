@@ -279,3 +279,72 @@ test("external links can open login without allowing cross-site API requests", a
 });
 
 
+
+test("enrollment rules reject duplicates missing inactive and reassigned records", async (t) => {
+  const f = await fixture(t);
+  await f.login();
+  assert.equal((await f.call("/api/records/inscripciones", "POST", { estudianteId: 7, cursoId: 2 })).status, 409);
+  assert.equal((await f.call("/api/records/inscripciones", "POST", { estudianteId: 999, cursoId: 2 })).status, 400);
+  assert.equal((await f.call("/api/records/inscripciones/10", "PUT", { estudianteId: 8, cursoId: 2, estado: "ACTIVA" })).status, 403);
+  assert.equal((await f.call("/api/records/estudiantes/7", "DELETE")).status, 409);
+  assert.equal((await f.call("/api/records/cursos/2", "DELETE")).status, 409);
+  assert.equal(f.writes.length, 0);
+  const inactive = await fixture(t, { records: { cursos: [{ id: 2, nombre: "Matemática", activo: false }] } });
+  await inactive.login();
+  assert.equal((await inactive.call("/api/records/inscripciones", "POST", { estudianteId: 7, cursoId: 2 })).status, 400);
+  assert.equal(inactive.writes.length, 0);
+});
+test("valid enrollment and temporary audit retain no request body", async (t) => {
+  const f = await fixture(t, { records: { inscripciones: [] } });
+  await f.login();
+  assert.equal((await f.call("/api/records/inscripciones", "POST", { estudianteId: 7, cursoId: 2 })).status, 200);
+  await f.call("/api/records/usuarios", "POST", { password: "never-log-this" });
+  const audit = await f.call("/api/audit");
+  assert.equal(audit.status, 200);
+  assert.equal(audit.data.length, 2);
+  assert.equal(audit.data[1].result, "Completada");
+  assert.equal(audit.data[0].result, "Rechazada");
+  assert.equal(JSON.stringify(audit.data).includes("never-log-this"), false);
+  assert.ok(audit.data.every((row) => Object.keys(row).every((key) => ["at", "actor", "method", "path", "status", "result"].includes(key))));
+  await f.login("student");
+  assert.equal((await f.call("/api/audit")).status, 403);
+});
+test("inactive accounts and people cannot be linked", async (t) => {
+  const f = await fixture(t, { records: { estudiantes: [{ id: 7, activo: false }] } });
+  await f.login();
+  assert.equal((await f.call("/api/access", "POST", { username: "student", profile: "ESTUDIANTE", personId: 7, courseIds: [], noteIds: [], canEdit: false })).status, 400);
+  assert.equal(f.writes.length, 0);
+});
+test("school inputs reject negative amounts and oversized usernames", () => {
+  assert.throws(() => validate("colegiaturas", { monto: -1 }, false));
+  assert.throws(() => validate("usuarios", { nombre: "A", apellido: "B", username: "x".repeat(51), email: "a@example.test", rol: "ESTUDIANTE", password: "test-only", activo: true }, false));
+});
+
+test("teacher creates notes only for assigned courses and can read them after login", async (t) => {
+  const f = await fixture(t);
+  const login = await f.login("teacher");
+  assert.ok(login.data.permissions.nota.actions.includes("create"));
+  const created = await f.call("/api/records/nota", "POST", { descripcion: "Final", valor: 80, curso: "Matemática" });
+  assert.equal(created.status, 200);
+  assert.ok(f.assignments.teacher.modules.nota.ids.includes(created.data.record.id));
+  assert.ok((await f.call("/api/records/nota")).data.some((n) => n.id === created.data.record.id));
+  await f.login("teacher");
+  assert.equal((await f.call(`/api/records/nota/${created.data.record.id}`)).status, 200);
+  assert.equal((await f.call("/api/records/nota", "POST", { descripcion: "Ajena", valor: 80, curso: "Historia" })).status, 400);
+  await f.login("student");
+  assert.equal((await f.call("/api/records/nota", "POST", { descripcion: "Ajena", valor: 80, curso: "Matemática" })).status, 403);
+});
+test("unassigned and inactive courses cannot receive teacher notes", async (t) => {
+  const f = await fixture(t, { records: { cursos: [{ id: 2, nombre: "Matemática", activo: false }, { id: 9, nombre: "Historia", activo: true }] } });
+  await f.login("teacher");
+  for (const curso of ["Matemática", "Historia"]) assert.equal((await f.call("/api/records/nota", "POST", { descripcion: "Parcial", valor: 80, curso })).status, 400);
+  assert.equal(f.writes.length, 0);
+});
+test("link failure reports note already created without suggesting retry", async (t) => {
+  const f = await fixture(t, { failSave: true });
+  await f.login("teacher");
+  const result = await f.call("/api/records/nota", "POST", { descripcion: "Parcial", valor: 80, curso: "Matemática" });
+  assert.equal(result.status, 200);
+  assert.match(result.data.message, /No vuelvas a crearla/);
+  assert.equal(f.writes.length, 1);
+});

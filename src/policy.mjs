@@ -15,7 +15,11 @@ export function allowed(s, route, action, row) {
     ["usuarios", "carreras", "colegiaturas"].includes(route)
   )
     return false;
-  if (action === "create") return false;
+  if (route === "inscripciones" && action !== "read") return false;
+  if (action === "create") return route === "nota" &&
+    s.available.includes("docentes") && s.available.includes("cursos") &&
+    !!s.grants.docentes?.ids?.length && !!s.grants.cursos?.ids?.length &&
+    s.grants.cursos?.actions?.includes("read") && s.grants.nota?.actions?.includes("read");
   const g = s.grants[route];
   if (!g || !g.actions?.includes(action)) return false;
   if (!row) return true;
@@ -67,7 +71,8 @@ export function validate(route, input, editing, actual) {
       )
         throw new HttpError(400, `Número no válido en ${f.label}.`);
     } else {
-      if (typeof v !== "string" || v.length > 4000)
+      const limit = route === "usuarios" ? ({ username: 50, email: 100, nombre: 60, apellido: 60 }[f.key] || 4000) : 4000;
+      if (typeof v !== "string" || v.trim().length > limit)
         throw new HttpError(400, `Texto no válido en ${f.label}.`);
       if (f.type !== "password") v = v.trim();
       if (f.type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))
@@ -78,6 +83,7 @@ export function validate(route, input, editing, actual) {
       )
         throw new HttpError(400, "Rol no válido.");
     }
+    if (f.key === "monto" && v < 0) throw new HttpError(400, "El monto no puede ser negativo.");
     body[f.key] = v;
   }
   if (

@@ -74,12 +74,12 @@ export default function RecordDialog({
     setBusy(true);
     setError("");
     try {
-      await request(
+      const result = await request(
         `/api/records/${route}${row ? "/" + row[m.id] : ""}`,
         row ? "PUT" : "POST",
         payload,
       );
-      onSaved("Datos guardados correctamente.");
+      onSaved(result.message || "Datos guardados correctamente.");
     } catch (err) {
       setError(err.message);
     } finally {
