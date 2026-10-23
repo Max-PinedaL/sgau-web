@@ -7,15 +7,15 @@ export default function Access({ request, notify }) {
     [username, setUsername] = useState(""),
     [profile, setProfile] = useState("ESTUDIANTE"),
     [person, setPerson] = useState(""),
-    [courses, setCourses] = useState(""),
-    [notes, setNotes] = useState(""),
+    [courses, setCourses] = useState([]),
+    [notes, setNotes] = useState([]),
     [canEdit, setCanEdit] = useState(false);
   useEffect(() => {
     let active = true;
     setError("");
-    Promise.all([request("/api/records/usuarios"), request("/api/access"), request("/api/records/estudiantes"), request("/api/records/docentes")])
-      .then(([users, assignments, estudiantes, docentes]) => {
-        if (active) setData({ users, assignments, estudiantes, docentes });
+    Promise.all([request("/api/records/usuarios"), request("/api/access"), request("/api/records/estudiantes"), request("/api/records/docentes"), request("/api/records/cursos"), request("/api/records/nota")])
+      .then(([users, assignments, estudiantes, docentes, cursos, notas]) => {
+        if (active) setData({ users, assignments, estudiantes, docentes, cursos, notas });
       })
       .catch((err) => {
         if (active) setError(err.message);
@@ -35,14 +35,12 @@ export default function Access({ request, notify }) {
           "",
       ),
     );
-    setCourses((a?.modules?.cursos?.ids || []).join(", "));
-    setNotes((a?.modules?.nota?.ids || []).join(", "));
+    setCourses(a?.modules?.cursos?.ids || []);
+    setNotes(a?.modules?.nota?.ids || []);
     setCanEdit(a?.modules?.docentes?.actions?.includes("update") || false);
   }
   async function save(e) {
     e.preventDefault();
-    const parse = (v) =>
-      v.trim() ? v.split(",").map((x) => Number(x.trim())) : [];
     setBusy(true);
     setError("");
     try {
@@ -50,8 +48,8 @@ export default function Access({ request, notify }) {
         username,
         profile,
         personId: Number(person),
-        courseIds: profile === "DOCENTE" ? parse(courses) : [],
-        noteIds: profile === "DOCENTE" ? parse(notes) : [],
+        courseIds: profile === "DOCENTE" ? courses : [],
+        noteIds: profile === "DOCENTE" ? notes : [],
         canEdit: profile === "DOCENTE" && canEdit,
       });
       notify(
@@ -64,6 +62,8 @@ export default function Access({ request, notify }) {
       setBusy(false);
     }
   }
+  const courseNames = (data?.cursos || []).filter((c) => courses.includes(c.id)).map((c) => c.nombre);
+  const availableNotes = (data?.notas || []).filter((n) => courseNames.includes(n.curso));
   return (
     <>
       <div className="page-head">
@@ -87,9 +87,9 @@ export default function Access({ request, notify }) {
       ) : (
         <form className="access-grid" onSubmit={save}>
           <label>
-            Cuenta del backend
+            Cuenta de usuario
             <select
-              aria-label="Cuenta del backend"
+              aria-label="Cuenta de usuario"
               required
               value={username}
               onChange={(e) => select(e.target.value)}
@@ -107,7 +107,7 @@ export default function Access({ request, notify }) {
             Tipo de registro a vincular
             <select
               value={profile}
-              onChange={(e) => { setProfile(e.target.value); setPerson(""); setCourses(""); setNotes(""); setCanEdit(false); }}
+              onChange={(e) => { setProfile(e.target.value); setPerson(""); setCourses([]); setNotes([]); setCanEdit(false); }}
               disabled={busy}
             >
               <option value="ESTUDIANTE">Estudiante</option>
@@ -123,7 +123,7 @@ export default function Access({ request, notify }) {
               disabled={busy || !username}
             >
               <option value="">Selecciona un registro</option>
-              {(profile === "DOCENTE" ? data.docentes : data.estudiantes).map((p) => {
+              {(profile === "DOCENTE" ? data.docentes : data.estudiantes).filter((p) => p.activo === true).map((p) => {
                 const route = profile === "DOCENTE" ? "docentes" : "estudiantes";
                 const linked = Object.entries(data.assignments).some(([account, a]) => account !== username && a.modules?.[route]?.ids?.includes(p.id));
                 return <option key={p.id} value={p.id} disabled={linked}>
@@ -134,24 +134,33 @@ export default function Access({ request, notify }) {
           </label>
           {profile === "DOCENTE" && (
             <>
-              <label>
-                IDs de cursos asignados
-                <input
-                  placeholder="Ejemplo: 2, 5"
-                  value={courses}
-                  onChange={(e) => setCourses(e.target.value)}
-                  disabled={busy}
-                />
-              </label>
-              <label>
-                IDs de notas asignadas
-                <input
-                  placeholder="Ejemplo: 12, 18"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  disabled={busy}
-                />
-              </label>
+              <fieldset className="assignment-list" disabled={busy || !username}>
+                <legend>Cursos asignados</legend>
+                <p className="muted">Selecciona uno o varios cursos.</p>
+                {!data.cursos.length && <p>No hay cursos disponibles.</p>}
+                {data.cursos.filter((course) => course.activo === true).map((course) => (
+                  <label className="checks" key={course.id}>
+                    <input type="checkbox" checked={courses.includes(course.id)} onChange={(e) => {
+                      const next = e.target.checked ? [...courses, course.id] : courses.filter((id) => id !== course.id);
+                      setCourses(next);
+                      const names = data.cursos.filter((c) => next.includes(c.id)).map((c) => c.nombre);
+                      setNotes((old) => old.filter((id) => data.notas.some((n) => n.id === id && names.includes(n.curso))));
+                    }} />
+                    {course.nombre || "Sin nombre"} · ID {course.id}
+                  </label>
+                ))}
+              </fieldset>
+              <fieldset className="assignment-list" disabled={busy || !username}>
+                <legend>Notas asignadas</legend>
+                <p className="muted">Solo aparecen notas de los cursos seleccionados.</p>
+                {!availableNotes.length && <p>{courses.length ? "No hay notas disponibles para estos cursos." : "Selecciona primero un curso."}</p>}
+                {availableNotes.map((note) => (
+                  <label className="checks" key={note.id}>
+                    <input type="checkbox" checked={notes.includes(note.id)} onChange={(e) => setNotes((old) => e.target.checked ? [...old, note.id] : old.filter((id) => id !== note.id))} />
+                    {note.descripcion || "Sin descripción"} · {note.curso} · Valor: {note.valor ?? "—"} · ID {note.id}
+                  </label>
+                ))}
+              </fieldset>
               <label className="checks">
                 <input
                   type="checkbox"
@@ -163,11 +172,7 @@ export default function Access({ request, notify }) {
               </label>
             </>
           )}
-          <p className="notice">
-            El rol se administra en Usuarios y no cambia al vincular datos.
-            El servicio actual no devuelve el rol de las cuentas: selecciona el tipo de registro que corresponda al rol existente.
-            Esta pantalla solo guarda los vínculos y permisos del portal.
-          </p>
+
           <button disabled={busy} type="submit">
             {busy ? "Guardando…" : "Guardar vinculación"}
           </button>

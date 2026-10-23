@@ -37,7 +37,7 @@ export function useSession() {
         });
       } catch {
         throw new Error(
-          "No hay conexión con el servidor web. Revisa que esté ejecutándose.",
+          "No se pudo conectar. Revisa tu conexión e inténtalo de nuevo.",
         );
       }
       const data = await response.json();

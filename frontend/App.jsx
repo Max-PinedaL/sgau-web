@@ -3,6 +3,7 @@ import { modules, display } from "../public/schema.js";
 import { useSession } from "./Session.jsx";
 import RecordDialog from "./RecordDialog.jsx";
 import Access from "./Access.jsx";
+import Audit from "./Audit.jsx";
 function Brand() {
   return (
     <div className="brand">
@@ -322,7 +323,7 @@ function Records({ route, session, request, notify }) {
           </>
         )}
       </div>
-      <p className="notice">{m.note}</p>
+
       {dialog && (
         <RecordDialog
           route={route}
@@ -397,8 +398,9 @@ function Workspace({ auth, notify }) {
               Vinculación de datos
             </button>
           )}
+          {session.profile === "Administrador" && <button className="nav-item" onClick={() => setRoute("audit")}>Historial de operaciones</button>}
         </nav>
-        <div className="sidebar-bottom">Portal académico · React</div>
+        <div className="sidebar-bottom">Portal académico</div>
       </aside>
       <div className="workspace">
         <header className="topbar">
@@ -423,6 +425,8 @@ function Workspace({ auth, notify }) {
         <main className="content">
           {route === "home" ? (
             <Home session={session} navigate={setRoute} />
+          ) : route === "audit" ? (
+            <Audit request={request} />
           ) : route === "access" ? (
             <Access request={request} notify={notify} />
           ) : (

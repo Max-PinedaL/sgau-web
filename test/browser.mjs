@@ -89,15 +89,35 @@ try {
   await page
     .getByRole("button", { name: "Vinculación de datos", exact: true })
     .click();
-  await page.getByLabel("Cuenta del backend").waitFor();
+  await page.getByLabel("Cuenta de usuario").waitFor();
   assert.equal(await page.locator("select").count(), 3);
-  await page.getByLabel("Cuenta del backend").selectOption("student");
+  await page.getByLabel("Cuenta de usuario").selectOption("student");
   assert.ok((await page.getByLabel("Estudiante existente").innerText()).includes("Propio Prueba"));
+  await page.getByLabel("Estudiante existente").selectOption("7");
+  await page.getByLabel("Tipo de registro a vincular").selectOption("DOCENTE");
+  assert.equal(await page.getByRole("checkbox", { name: /Parcial/ }).count(), 0);
+  await page.getByRole("checkbox", { name: "Matemática · ID 2", exact: true }).check();
+  await page.getByRole("checkbox", { name: /Parcial/ }).check();
+  await page.getByRole("checkbox", { name: "Matemática · ID 2", exact: true }).uncheck();
+  assert.equal(await page.getByRole("checkbox", { name: /Parcial/ }).count(), 0);
+  await page.getByRole("checkbox", { name: "Matemática · ID 2", exact: true }).check();
+  assert.equal(await page.getByRole("checkbox", { name: /Parcial/ }).isChecked(), false);
+  await page.getByLabel("Tipo de registro a vincular").selectOption("ESTUDIANTE");
   await page.getByLabel("Estudiante existente").selectOption("7");
   const beforeLink = f.writes.length;
   await page.getByRole("button", { name: "Guardar vinculación" }).click();
   await page.getByRole("status").filter({ hasText: "Vinculación guardada." }).waitFor();
   assert.equal(f.writes.length, beforeLink);
+  await page.getByRole("button", { name: "IN Inscripciones", exact: true }).click();
+  await page.getByRole("button", { name: "+ Crear inscripción" }).click();
+  await page.getByLabel("Estudiante", { exact: true }).selectOption("7");
+  await page.getByLabel("Curso", { exact: true }).selectOption("2");
+  await page.getByRole("button", { name: "Guardar", exact: true }).click();
+  await page.getByRole("alert").filter({ hasText: "ya tiene una inscripción vigente" }).waitFor();
+  await page.getByRole("button", { name: "Cancelar", exact: true }).click();
+  await page.getByRole("button", { name: "Historial de operaciones", exact: true }).click();
+  await page.getByRole("heading", { name: "Historial de operaciones" }).waitFor();
+  await page.locator("tbody tr").first().waitFor();
   await page.getByRole("button", { name: "Inicio", exact: true }).click();
   if (process.env.QA_DIR)
     await page.screenshot({

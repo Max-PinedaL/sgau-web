@@ -49,7 +49,7 @@ export default function RecordDialog({
           .then((data) => {
             if (active) setOptions((old) => ({ ...old, [related]: data }));
           })
-          .catch(() => {});
+          .catch((err) => { if (active) setError(err.message); });
       }
     return () => {
       active = false;
@@ -175,7 +175,7 @@ export default function RecordDialog({
             <p className="muted">
               {m.soft
                 ? "El registro dejará de aparecer en el listado. La app no ofrece reactivación."
-                : "El registro se eliminará del servidor. Esta acción no se puede deshacer desde la web."}
+                : "El registro se eliminará. Esta acción no se puede deshacer."}
             </p>
             {error && (
               <p className="error" role="alert">
@@ -218,12 +218,21 @@ export default function RecordDialog({
                     value: values[f.key],
                     onChange: (e) => setValues((old) => ({ ...old, [f.key]: e.target.value })),
                   }),
-                  disabled: busy,
+                  disabled: busy || (route === "inscripciones" && !!row && ["estudianteId", "cursoId"].includes(f.key)),
                 };
                 return (
                   <label key={f.key}>
                     {f.label}
-                    {["boolean", "role"].includes(f.type) ? (
+                    {related ? (
+                      <select {...common} disabled={common.disabled || !options[related]}>
+                        <option value="">{options[related] ? "Selecciona un registro" : "Cargando registros…"}</option>
+                        {(options[related] || []).filter((item) => item.activo === true).map((item) => (
+                          <option key={item[modules[related].id]} value={route === "nota" ? item.nombre : item[modules[related].id]}>
+                            {titleOf(related, item)} · ID {item[modules[related].id]}
+                          </option>
+                        ))}
+                      </select>
+                    ) : ["boolean", "role"].includes(f.type) ? (
                       <select {...common}>
                         {(f.type === "boolean"
                           ? [
@@ -271,26 +280,11 @@ export default function RecordDialog({
                     {f.type === "password" && row && (
                       <small>Vacía para conservar la contraseña actual.</small>
                     )}
-                    {related && options[related] && (
-                      <datalist id={`options-${f.key}`}>
-                        {options[related].map((item) => (
-                          <option
-                            key={item[modules[related].id]}
-                            value={
-                              route === "nota"
-                                ? item.nombre
-                                : item[modules[related].id]
-                            }
-                            label={titleOf(related, item)}
-                          />
-                        ))}
-                      </datalist>
-                    )}
                   </label>
                 );
               })}
             </div>
-            <p className="notice">{m.note}</p>
+      
             {error && (
               <p className="error" role="alert">
                 {error}
