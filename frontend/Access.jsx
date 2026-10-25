@@ -111,7 +111,7 @@ export default function Access({ request, notify }) {
               onChange={(e) => { setProfile(e.target.value); setPerson(""); setCourses([]); setNotes([]); setCanEdit(false); }}
               disabled={busy}
             >
-              <option value="ESTUDIANTE">Estudiante</option>
+              <option value="ESTUDIANTE">GESTION DE ESTUDIANTES</option>
               <option value="DOCENTE">Docente</option>
             </select>
           </label>
