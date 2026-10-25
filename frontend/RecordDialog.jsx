@@ -26,7 +26,7 @@ export default function RecordDialog({
             : f.type === "role"
               ? row
                 ? ""
-                : "ESTUDIANTE"
+                : "Gestion de estudiantes"
               : String(row?.[f.key] ?? ""),
       ]),
     ),
